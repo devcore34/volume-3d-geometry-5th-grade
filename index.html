@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#f5f8fd" />
+    <title>Объём пространственных фигур в единичных кубах · 5 класс (3D-доска)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@600;700&family=Manrope:wght@500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body data-theme="light">
+    <!-- Full-bleed 3D Geometry Canvas occupying 100% of the electronic whiteboard -->
+    <div id="viewport-3d" aria-label="Интерактивный 3D-чертёж"></div>
+
+    <!-- Full-board Crisp Vector 2D Textbook Stage (shown first, then morphs into 3D!) -->
+    <section id="stage-2d" class="stage-2d" aria-label="2D-чертёж из учебника"></section>
+
+    <!-- Electronic whiteboard marker drawing overlay (works over BOTH 2D and 3D!) -->
+    <canvas id="draw-overlay"></canvas>
+
+    <!-- Subtle first-visit gesture hint -->
+    <div id="orbit-hint" class="orbit-hint">
+      <span class="orbit-hint-icon">🖐️</span>
+      <span>Тяни, чтобы <strong>крутить чертёж 360°</strong> · Колёсико / щипок — приблизить</span>
+    </div>
+
+    <!-- Mobile Backdrop for Slide-Over Drawers -->
+    <div id="mobile-backdrop" class="mobile-backdrop hidden"></div>
+
+    <!-- Top Floating Header -->
+    <header id="top-bar" class="top-bar glass-panel">
+      <div class="brand">
+        <button id="btn-mobile-menu" class="icon-pill mobile-only" title="Выбрать фигуру" aria-label="Список фигур">
+          <span>☰</span><span class="mobile-btn-txt">Фигуры</span>
+        </button>
+        <div class="brand-cube desktop-only" aria-hidden="true">🧊</div>
+        <div class="brand-text desktop-only">
+          <div class="brand-title">Объём в единичных кубах</div>
+          <div class="brand-sub">5 класс · 3D-геометрия для доски</div>
+        </div>
+      </div>
+
+      <nav id="section-tabs" class="section-tabs" aria-label="Разделы урока"></nav>
+
+      <div class="top-actions">
+        <div class="mode-switch" role="group" aria-label="Режим показа: 2D или 3D">
+          <button id="btn-mode-2d" class="mode-pill active" title="Показать плоский 2D-чертёж из учебника (Пробел)">
+            📖 2D
+          </button>
+          <button id="btn-mode-3d" class="mode-pill" title="Показать объёмную 3D-модель и крутить её (Пробел)">
+            🧊 3D
+          </button>
+        </div>
+        <button id="btn-mobile-info" class="icon-pill mobile-only" title="Объяснение и задание">
+          <span>📋</span><span class="mobile-btn-txt">Задание</span>
+        </button>
+        <button id="btn-marker" class="icon-pill" title="Рисовать маркером поверх чертежа (M)">
+          <span>✏️</span><span class="btn-label">Маркер</span>
+        </button>
+        <button id="btn-theme" class="icon-pill" title="Переключить тему: Светлая доска / Синий чертёж">
+          <span id="theme-icon">🌙</span><span class="btn-label" id="theme-label">Чертёж</span>
+        </button>
+        <button id="btn-zen" class="icon-pill desktop-only" title="Режим чистой доски — скрыть панели (Z)">
+          <span>📺</span><span class="btn-label">Доска</span>
+        </button>
+        <button id="btn-fullscreen" class="icon-pill icon-only desktop-only" title="На весь экран (F)" aria-label="На весь экран">
+          ⛶
+        </button>
+      </div>
+    </header>
+
+    <!-- Floating Clean-Board Zen Toolbar (shown only in Clean Board mode) -->
+    <div id="zen-bar" class="zen-bar glass-panel hidden">
+      <button id="btn-exit-zen" class="zen-btn" title="Вернуть панели (Z)">☰ Панели</button>
+      <div class="bar-sep"></div>
+      <button id="zen-prev" class="zen-btn" title="Предыдущая фигура (←)">←</button>
+      <button id="zen-next" class="zen-btn" title="Следующая фигура (→)">→</button>
+      <div class="bar-sep"></div>
+      <button id="zen-mode-2d" class="zen-btn" title="Показать 2D из учебника">📖 2D</button>
+      <button id="zen-mode-3d" class="zen-btn primary" title="Показать в 3D">🧊 3D</button>
+      <div class="bar-sep"></div>
+      <button id="zen-answer" class="zen-btn answer-toggle-btn" title="Показать или скрыть ответ (Enter)">👁 Ответ</button>
+    </div>
+
+    <!-- Floating Teacher Answer Reveal Pill (appears ONLY when teacher clicks «Показать ответ»!) -->
+    <div id="answer-banner" class="answer-banner glass-panel hidden"></div>
+
+    <!-- Floating Marker Palette (shown only when Marker mode is ON) -->
+    <div id="marker-bar" class="marker-bar glass-panel hidden">
+      <span class="marker-badge">✏️ Режим маркера</span>
+      <button class="color-dot active" data-color="#ef4444" style="--dot:#ef4444" title="Красный"></button>
+      <button class="color-dot" data-color="#2563eb" style="--dot:#2563eb" title="Синий"></button>
+      <button class="color-dot" data-color="#16a34a" style="--dot:#16a34a" title="Зелёный"></button>
+      <button class="color-dot" data-color="#f59e0b" style="--dot:#f59e0b" title="Жёлтый"></button>
+      <button class="color-dot" data-color="#0f172a" style="--dot:#0f172a" title="Чёрный"></button>
+      <div class="bar-sep"></div>
+      <button id="btn-draw-eraser" class="mini-btn" title="Ластик">🧽 Ластик</button>
+      <button id="btn-draw-undo" class="mini-btn" title="Отменить штрих">↩️</button>
+      <button id="btn-draw-clear" class="mini-btn danger" title="Очистить все рисунки">🗑 Очистить</button>
+      <button id="btn-draw-done" class="mini-btn primary" title="Вернуться к вращению 3D">Готово</button>
+    </div>
+
+    <!-- Top-Center Live Activity HUD (Count-up / Tap-to-Count / Peel / Layer info) -->
+    <div id="live-hud" class="live-hud glass-panel hidden"></div>
+
+    <!-- Left Collapsible Figure Picker Rail -->
+    <aside id="left-rail" class="left-rail glass-panel">
+      <div class="rail-header">
+        <div>
+          <div id="rail-badge" class="page-pill">Стр. 111</div>
+          <div id="rail-section-title" class="rail-title">Смотрите и учитесь</div>
+        </div>
+        <button id="btn-toggle-left" class="collapse-btn" title="Свернуть список фигур">‹</button>
+      </div>
+
+      <div id="figure-list" class="figure-list"></div>
+
+      <div class="rail-footer">
+        <button id="btn-prev-item" class="nav-step-btn" title="Предыдущая фигура (←)">← Назад</button>
+        <button id="btn-next-item" class="nav-step-btn primary" title="Следующая фигура (→)">Далее →</button>
+      </div>
+    </aside>
+
+    <!-- Left Restore Handle when collapsed -->
+    <button id="btn-open-left" class="side-restore left glass-panel hidden" title="Открыть список фигур">
+      <span>›</span>
+      <span class="restore-text">Фигуры</span>
+    </button>
+
+    <!-- Right Collapsible Explanation & Interactive Task Card -->
+    <aside id="right-panel" class="right-panel glass-panel">
+      <div class="panel-header">
+        <span id="item-page-badge" class="page-pill">Стр. 111 · № 1</span>
+        <button id="btn-toggle-right" class="collapse-btn" title="Свернуть карточку объяснения">›</button>
+      </div>
+      <div id="right-panel-body" class="panel-body"></div>
+    </aside>
+
+    <!-- Right Restore Handle when collapsed -->
+    <button id="btn-open-right" class="side-restore right glass-panel hidden" title="Открыть объяснение и задание">
+      <span class="restore-text">Задание</span>
+      <span>‹</span>
+    </button>
+
+    <!-- Bottom 2D Action Dock (shown in 2D textbook mode — big CTA to reveal 3D!) -->
+    <footer id="bottom-dock-2d" class="bottom-dock-2d glass-panel">
+      <span class="dock2d-status">📖 <strong>2D из учебника</strong> — сначала обсудите с классом</span>
+      <button id="btn-reveal-3d" class="reveal-3d-btn" title="Оживить чертёж в 3D (Пробел)">
+        <span class="reveal-3d-icon">🧊</span>
+        <span>Показать в 3D</span>
+        <kbd class="kbd-hint">Пробел</kbd>
+      </button>
+      <button id="btn-answer-2d" class="dock2d-answer-btn answer-toggle-btn" title="Показать или скрыть ответ (Enter)">
+        👁 Ответ
+      </button>
+    </footer>
+
+    <!-- Bottom Floating 3D Geometry Controls Dock -->
+    <footer id="bottom-dock" class="bottom-dock glass-panel hidden">
+      <!-- Return to 2D textbook view + Teacher Answer Button -->
+      <div class="dock-group">
+        <span class="dock-label">Урок</span>
+        <div class="dock-buttons">
+          <button id="btn-back-2d" class="dock-btn dock-btn-2d" title="Вернуться к плоскому 2D-чертежу из учебника (Пробел)">📖 2D</button>
+          <button id="btn-answer-3d" class="dock-btn dock-btn-answer answer-toggle-btn" title="Показать или скрыть ответ (Enter)">👁 Ответ</button>
+        </div>
+      </div>
+
+      <div class="dock-divider"></div>
+
+      <!-- Camera Presets -->
+      <div class="dock-group">
+        <span class="dock-label">Ракурс</span>
+        <div class="dock-buttons">
+          <button class="dock-btn" data-view="textbook" title="Ракурс как в учебнике (1)">📐 Учебник</button>
+          <button class="dock-btn" data-view="top" title="Вид сверху — план (2)">⬆ Верх</button>
+          <button class="dock-btn" data-view="front" title="Вид спереди (3)">➡ Перед</button>
+          <button class="dock-btn" data-view="side" title="Вид сбоку (4)">⬅ Бок</button>
+          <button class="dock-btn" data-view="back" title="Показать сзади (5)">🔄 Зад</button>
+          <button id="btn-autorotate" class="dock-btn" title="Плавное автовращение (R)">↻</button>
+          <button id="btn-projection" class="dock-btn" title="Переключить: Перспектива / Изометрия (P)">🧊 3D</button>
+        </div>
+      </div>
+
+      <div class="dock-divider"></div>
+
+      <!-- Explode Slider -->
+      <div class="dock-group explode-group">
+        <span class="dock-label">Разнести <strong id="explode-pct">0%</strong></span>
+        <input id="explode-slider" type="range" min="0" max="100" value="0" aria-label="Разнести кубы" />
+      </div>
+
+      <div class="dock-divider"></div>
+
+      <!-- Layer Slicer -->
+      <div id="layer-group" class="dock-group">
+        <span class="dock-label">Слои</span>
+        <div id="layer-buttons" class="dock-buttons"></div>
+      </div>
+
+      <div id="tools-divider" class="dock-divider"></div>
+
+      <!-- Pedagogical Exploration Tools -->
+      <div id="tools-group" class="dock-group">
+        <span class="dock-label">Инструменты</span>
+        <div class="dock-buttons">
+          <button id="btn-countup" class="dock-btn" title="Пошаговый подсчёт кубов по одному">🔢 Счёт</button>
+          <button id="btn-tapcount" class="dock-btn" title="Нажимай на кубы, чтобы считать их">👆 Тык</button>
+          <button id="btn-peel" class="dock-btn" title="Нажми на куб, чтобы сделать его прозрачным">🪟 Снять</button>
+          <button id="btn-xray" class="dock-btn" title="Рентген — увидеть скрытые кубы (X)">👻 Рентген</button>
+          <button id="btn-dims" class="dock-btn" title="Показать размеры на чертеже (D)">📏 Размеры</button>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Bottom Reservoir Filling Controls Dock (shown in Reservoir Demo mode) -->
+    <footer id="bottom-dock-reservoir" class="bottom-dock glass-panel hidden">
+      <div class="dock-group">
+        <span class="dock-label">Наполнение резервуара</span>
+        <div class="dock-buttons">
+          <button id="res-dock-play" class="dock-btn res-play-btn" title="Плавно наполнить до краёв (Пробел)">▶ Наполнить до краёв</button>
+          <button id="res-dock-step1" class="dock-btn" title="Добавить 1 единичный куб">+1 куб</button>
+          <button id="res-dock-layer" class="dock-btn" title="Заполнить целый слой">+1 слой</button>
+          <button id="res-dock-reset" class="dock-btn" title="Опустошить резервуар">↺ Пусто</button>
+          <button id="res-dock-nums" class="dock-btn" title="Показать номера 1, 2, 3... на кубах">🔢 Номера</button>
+          <button id="res-dock-answer" class="dock-btn dock-btn-answer answer-toggle-btn" title="Показать или скрыть ответ вместимости (Enter)">👁 Ответ</button>
+        </div>
+      </div>
+
+      <div class="dock-divider"></div>
+
+      <div class="dock-group">
+        <span class="dock-label">Ракурс</span>
+        <div class="dock-buttons">
+          <button class="dock-btn" data-view="textbook" title="Обычный ракурс">📐 3/4</button>
+          <button class="dock-btn" data-view="top" title="Вид сверху внутрь резервуара">⬆ Верх</button>
+          <button class="dock-btn" data-view="front" title="Вид спереди">➡ Перед</button>
+          <button id="res-dock-rotate" class="dock-btn" title="Плавное вращение резервуара">↻</button>
+          <button id="res-dock-dims" class="dock-btn active" title="Показать размеры ёмкости">📏 Размеры</button>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Celebration Toast -->
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
