@@ -436,6 +436,7 @@ export class GeometryScene {
     this.colorCodedFaces = false;
     this.gridBoxInfo = null;
     this.flipAnim = null;
+    this.highlightDim = null;
 
     this.cubeEntries = [];
     this.compareMeta = [];
@@ -612,9 +613,9 @@ export class GeometryScene {
     });
 
     this.currentDimensionsSpec = [
-      { axis: 'x', label: `${a} ед.` },
-      { axis: 'y', label: `${h} ед.` },
-      { axis: 'z', label: `${b} ед.` },
+      { axis: 'x', label: `Ширина: ${a} ед.` },
+      { axis: 'y', label: `Высота: ${h} ед.` },
+      { axis: 'z', label: `Длина: ${b} ед.` },
     ];
     this.showDimensions = options.showDimensions !== false;
     this._buildDimensions(bounds, this.figureOffset, this.currentDimensionsSpec);
@@ -634,7 +635,7 @@ export class GeometryScene {
   // Smooth 90-degree 3D tip-over animation for Page 117 "в двух различных положениях"!
   flipGridBox(targetFlipped) {
     if (!this.gridBoxInfo) return;
-    const { a, h } = this.gridBoxInfo;
+    const { a, b, h } = this.gridBoxInfo;
     const nextFlipped = typeof targetFlipped === 'boolean' ? targetFlipped : !this.gridBoxInfo.flipped;
     this.gridBoxInfo.flipped = nextFlipped;
 
@@ -650,9 +651,40 @@ export class GeometryScene {
       duration: 0.72,
     };
 
-    // Hide static dimension brackets during flipped position so they don't misalign, or update cleanly
-    this.dimGroup.visible = this.showDimensions && !nextFlipped;
+    // Dynamically update 3D color-coded "Длина / Ширина / Высота" brackets to match the new 90° orientation!
+    const curW = nextFlipped ? h : a;
+    const curH = nextFlipped ? a : h;
+    const curL = b;
+    const activeBounds = {
+      minX: 0,
+      maxX: curW - 1,
+      minY: 0,
+      maxY: curH - 1,
+      minZ: 0,
+      maxZ: curL - 1,
+      sx: curW,
+      sy: curH,
+      sz: curL,
+    };
+    const activeOffset = [-(curW - 1) / 2, 0, -(curL - 1) / 2];
+    this.currentBounds = activeBounds;
+    this.figureOffset = activeOffset;
+    this.currentDimensionsSpec = [
+      { axis: 'x', label: `Ширина: ${curW} ед.` },
+      { axis: 'y', label: `Высота: ${curH} ед.` },
+      { axis: 'z', label: `Длина: ${curL} ед.` },
+    ];
+    this._buildDimensions(activeBounds, activeOffset, this.currentDimensionsSpec);
     this.requestRender(true);
+  }
+
+  setHighlightDim(dim) {
+    // dim: 'length' | 'width' | 'height' | null
+    this.highlightDim = dim || null;
+    if (this.currentBounds && (this.mode === 'figure' || this.mode === 'reservoir')) {
+      this._buildDimensions(this.currentBounds, this.figureOffset, this.currentDimensionsSpec);
+      this.requestRender(false);
+    }
   }
 
   // ==================== MINECRAFT BLOCK TEXTURE ENGINE ====================
@@ -1474,16 +1506,52 @@ export class GeometryScene {
     ];
 
     const isDark = this.theme === 'dark';
-    const lineColor = isDark ? 0x38bdf8 : 0x1d4ed8;
     const pad = 0.38;
+    const axisMeta = {
+      x: {
+        dimKey: 'width',
+        hex: isDark ? 0xfb923c : 0xea580c,
+        cls: 'dim-badge-width',
+      },
+      z: {
+        dimKey: 'length',
+        hex: isDark ? 0x38bdf8 : 0x2563eb,
+        cls: 'dim-badge-length',
+      },
+      y: {
+        dimKey: 'height',
+        hex: isDark ? 0x4ade80 : 0x16a34a,
+        cls: 'dim-badge-height',
+      },
+    };
 
-    const drawBracket = (p1, p2, tickDir, text) => {
-      const mat = new THREE.LineBasicMaterial({ color: lineColor });
+    const drawBracket = (p1, p2, tickDir, text, axis) => {
+      const meta = axisMeta[axis] || axisMeta.z;
+      const isHl = this.highlightDim === meta.dimKey;
+      const isDimmed = Boolean(this.highlightDim) && !isHl;
+
+      const mat = new THREE.LineBasicMaterial({
+        color: meta.hex,
+        transparent: isDimmed,
+        opacity: isDimmed ? 0.32 : 1,
+      });
       const geo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
       this.dimGroup.add(new THREE.Line(geo, mat));
 
+      // Bold glowing tube beam along the highlighted dimension so 5th graders see it instantly!
+      if (isHl) {
+        const dir = new THREE.Vector3().subVectors(p2, p1);
+        const len = dir.length();
+        const cylGeo = new THREE.CylinderGeometry(0.055, 0.055, len, 10);
+        const cylMat = new THREE.MeshBasicMaterial({ color: meta.hex });
+        const beam = new THREE.Mesh(cylGeo, cylMat);
+        beam.position.copy(p1).add(p2).multiplyScalar(0.5);
+        beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+        this.dimGroup.add(beam);
+      }
+
       // End ticks
-      const t = tickDir.clone().multiplyScalar(0.11);
+      const t = tickDir.clone().multiplyScalar(isHl ? 0.16 : 0.11);
       const tick1 = new THREE.BufferGeometry().setFromPoints([p1.clone().sub(t), p1.clone().add(t)]);
       const tick2 = new THREE.BufferGeometry().setFromPoints([p2.clone().sub(t), p2.clone().add(t)]);
       this.dimGroup.add(new THREE.Line(tick1, mat));
@@ -1491,7 +1559,7 @@ export class GeometryScene {
 
       const mid = p1.clone().add(p2).multiplyScalar(0.5);
       const el = document.createElement('div');
-      el.className = 'dim-badge';
+      el.className = `dim-badge ${meta.cls}${isHl ? ' is-highlighted' : ''}${isDimmed ? ' is-dimmed' : ''}`;
       el.textContent = text;
       const obj = new CSS2DObject(el);
       obj.position.copy(mid);
@@ -1504,21 +1572,24 @@ export class GeometryScene {
           new THREE.Vector3(minX, maxY + pad, minZ),
           new THREE.Vector3(maxX, maxY + pad, minZ),
           new THREE.Vector3(0, 1, 0),
-          s.label
+          s.label,
+          'x'
         );
       } else if (s.axis === 'y') {
         drawBracket(
           new THREE.Vector3(maxX + pad, minY, maxZ),
           new THREE.Vector3(maxX + pad, maxY, maxZ),
           new THREE.Vector3(1, 0, 0),
-          s.label
+          s.label,
+          'y'
         );
       } else if (s.axis === 'z') {
         drawBracket(
           new THREE.Vector3(minX - pad, maxY, minZ),
           new THREE.Vector3(minX - pad, maxY, maxZ),
           new THREE.Vector3(1, 0, 0),
-          s.label
+          s.label,
+          'z'
         );
       }
     }

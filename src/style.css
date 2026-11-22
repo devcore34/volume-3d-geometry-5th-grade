@@ -1488,20 +1488,73 @@ body[data-theme='dark'] .dock-btn.active {
 /* ==================== 3D CSS2D FLOATING LABELS ==================== */
 .dim-badge {
   font-family: var(--font-ui);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 800;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.96);
   color: #1e3a8a;
-  border: 1.5px solid rgba(37, 99, 235, 0.45);
+  border: 1.8px solid rgba(37, 99, 235, 0.5);
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14);
   white-space: nowrap;
+  transition: transform 0.18s ease, opacity 0.18s ease, background 0.18s ease;
 }
 body[data-theme='dark'] .dim-badge {
-  background: rgba(11, 26, 52, 0.94);
+  background: rgba(11, 26, 52, 0.96);
   color: #7dd3fc;
-  border-color: rgba(56, 189, 248, 0.55);
+  border-color: rgba(56, 189, 248, 0.58);
+}
+
+/* Color-coded Длина (blue) / Ширина (orange) / Высота (green) in 3D */
+.dim-badge.dim-badge-length {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #2563eb;
+}
+body[data-theme='dark'] .dim-badge.dim-badge-length {
+  background: #0c2440;
+  color: #bae6fd;
+  border-color: #38bdf8;
+}
+.dim-badge.dim-badge-width {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #ea580c;
+}
+body[data-theme='dark'] .dim-badge.dim-badge-width {
+  background: #3b1d0a;
+  color: #fed7aa;
+  border-color: #fb923c;
+}
+.dim-badge.dim-badge-height {
+  background: #f0fdf4;
+  color: #15803d;
+  border-color: #16a34a;
+}
+body[data-theme='dark'] .dim-badge.dim-badge-height {
+  background: #0a2e1a;
+  color: #bbf7d0;
+  border-color: #4ade80;
+}
+.dim-badge.is-highlighted {
+  transform: scale(1.16);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.28);
+  z-index: 5;
+}
+.dim-badge.dim-badge-length.is-highlighted {
+  background: #2563eb;
+  color: #ffffff;
+}
+.dim-badge.dim-badge-width.is-highlighted {
+  background: #ea580c;
+  color: #ffffff;
+}
+.dim-badge.dim-badge-height.is-highlighted {
+  background: #16a34a;
+  color: #ffffff;
+}
+.dim-badge.is-dimmed {
+  opacity: 0.35;
 }
 
 .axis-label {
@@ -2277,6 +2330,11 @@ body[data-theme='dark'] .mc-bar-tag {
   color: #ffffff !important;
 }
 
+.iso-dim-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
 .iso-dim-chips {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2287,22 +2345,84 @@ body[data-theme='dark'] .mc-bar-tag {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 7px 6px;
+  padding: 7px 4px;
   border-radius: 12px;
   background: var(--surface);
-  border: 1px solid var(--border-soft);
+  border: 1.8px solid var(--border-soft);
   text-align: center;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
+}
+.iso-dim-chip:hover {
+  transform: translateY(-1px);
 }
 .iso-dim-chip span {
-  font-size: 10.5px;
-  font-weight: 700;
-  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 800;
 }
 .iso-dim-chip strong {
   font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 800;
-  color: var(--accent-text);
+}
+.iso-dim-chip.is-length {
+  background: #eff6ff;
+  border-color: rgba(37, 99, 235, 0.48);
+  color: #1d4ed8;
+}
+body[data-theme='dark'] .iso-dim-chip.is-length {
+  background: rgba(12, 36, 64, 0.9);
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #bae6fd;
+}
+.iso-dim-chip.is-length.is-active {
+  background: #2563eb;
+  border-color: #1d4ed8;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.38);
+}
+
+.iso-dim-chip.is-width {
+  background: #fff7ed;
+  border-color: rgba(234, 88, 12, 0.48);
+  color: #c2410c;
+}
+body[data-theme='dark'] .iso-dim-chip.is-width {
+  background: rgba(59, 29, 10, 0.9);
+  border-color: rgba(251, 146, 60, 0.55);
+  color: #fed7aa;
+}
+.iso-dim-chip.is-width.is-active {
+  background: #ea580c;
+  border-color: #c2410c;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.38);
+}
+
+.iso-dim-chip.is-height {
+  background: #f0fdf4;
+  border-color: rgba(22, 163, 74, 0.48);
+  color: #15803d;
+}
+body[data-theme='dark'] .iso-dim-chip.is-height {
+  background: rgba(10, 46, 26, 0.9);
+  border-color: rgba(74, 222, 128, 0.55);
+  color: #bbf7d0;
+}
+.iso-dim-chip.is-height.is-active {
+  background: #16a34a;
+  border-color: #15803d;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.38);
+}
+
+.iso-dim-hint {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-soft);
+  text-align: center;
+  line-height: 1.3;
 }
 .iso-step-caption {
   font-size: 12.5px;

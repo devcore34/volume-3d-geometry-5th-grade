@@ -115,8 +115,10 @@ const state = {
   isoPlaying: false,
   isoTimer: null,
   isoDrawMode: false,
+  isoShowDimNames: true, // Always show color-coded Длина / Ширина / Высота arrows by default!
   isoShowUnits: false,
   isoShowHidden: false,
+  highlightDim: null, // 'length' | 'width' | 'height' | null
   gridFlipped: false,
 };
 
@@ -148,6 +150,7 @@ const isoPlayBtn = document.getElementById('iso-play-btn');
 const isoDrawBtn = document.getElementById('iso-draw-btn');
 const isoUndoBtn = document.getElementById('iso-undo-btn');
 const isoClearBtn = document.getElementById('iso-clear-btn');
+const isoDimNamesBtn = document.getElementById('iso-dimnames-btn');
 const isoUnitsBtn = document.getElementById('iso-units-btn');
 const isoHiddenBtn = document.getElementById('iso-hidden-btn');
 const isoTo3dBtn = document.getElementById('iso-to-3d-btn');
@@ -326,6 +329,7 @@ function resetToolsForNewItem(item) {
   state.showDimensions = Boolean(item.showDimensionsDefault);
   state.compareFocusSubset = false;
   state.isoDrawMode = false;
+  state.highlightDim = null;
   state.gridFlipped = false;
   isoGrid.setDrawMode(false);
   isoGrid.clearDrawings();
@@ -451,6 +455,8 @@ function renderStage2D() {
       revealed: state.revealed.has(item.id),
       showUnitGrid: state.isoShowUnits,
       showHiddenEdges: state.isoShowHidden,
+      showDimNames: state.isoShowDimNames,
+      highlightDim: state.highlightDim,
     });
     return;
   }
@@ -1005,20 +1011,34 @@ function renderRightPanel() {
 // ==================== TOPIC 2: ISOMETRIC DOT-GRID PANEL & CONTROLS ====================
 function renderGridPanel(item) {
   const isDouble = isGridDoubleItem(item);
-  const box = getActiveGridBox(item);
+  const baseBox = getActiveGridBox(item);
+  const box = isDouble && state.gridFlipped ? item.pos2 : baseBox;
   const totalVol = box.a * box.b * box.h;
   const isRev = state.revealed.has(item.id);
   const hintOpen = state.hintsOpen.has(item.id);
+  const hl = state.highlightDim;
 
   let html = `<h2 class="card-title">${item.title}</h2>`;
   html += `<p class="card-desc">${item.description}</p>`;
 
-  // Dimension pills so 5th graders always see the exact 3 measurements clearly
+  // Clickable 3-color Dimension Legend (Длина / Ширина / Высота) — tap any to glow its edges on 2D & 3D!
   html += `
-    <div class="iso-dim-chips">
-      <div class="iso-dim-chip"><span>Левое ребро</span><strong>${box.a} ед.</strong></div>
-      <div class="iso-dim-chip"><span>Правое ребро</span><strong>${box.b} ед.</strong></div>
-      <div class="iso-dim-chip"><span>Высота</span><strong>${box.h} ед.</strong></div>
+    <div class="iso-dim-section">
+      <div class="iso-dim-chips">
+        <button class="iso-dim-chip is-length ${hl === 'length' ? 'is-active' : ''}" data-hl-dim="length" title="Нажми, чтобы подсветить Длину (↗) на чертеже">
+          <span>↗ Длина</span>
+          <strong>${box.b} ед.</strong>
+        </button>
+        <button class="iso-dim-chip is-width ${hl === 'width' ? 'is-active' : ''}" data-hl-dim="width" title="Нажми, чтобы подсветить Ширину (↘) на чертеже">
+          <span>↘ Ширина</span>
+          <strong>${box.a} ед.</strong>
+        </button>
+        <button class="iso-dim-chip is-height ${hl === 'height' ? 'is-active' : ''}" data-hl-dim="height" title="Нажми, чтобы подсветить Высоту (↕) на чертеже">
+          <span>↕ Высота</span>
+          <strong>${box.h} ед.</strong>
+        </button>
+      </div>
+      <div class="iso-dim-hint">👆 Нажми на <strong>Длину</strong>, <strong>Ширину</strong> или <strong>Высоту</strong> — подсветим эти рёбра на чертеже!</div>
     </div>
   `;
 
@@ -1137,6 +1157,28 @@ function renderGridPanel(item) {
   rightBodyEl.innerHTML = html;
 
   // Bind Topic 2 panel events
+  rightBodyEl.querySelectorAll('[data-hl-dim]').forEach((btn) => {
+    btn.onclick = () => {
+      const dim = btn.dataset.hlDim;
+      state.highlightDim = state.highlightDim === dim ? null : dim;
+      if (state.highlightDim) {
+        state.isoShowDimNames = true;
+        if (state.viewMode === '3d' && !state.showDimensions) {
+          state.showDimensions = true;
+          scene3d.setShowDimensions(true);
+          renderBottomDock();
+        }
+      }
+      scene3d.setHighlightDim(state.highlightDim);
+      if (state.viewMode === '2d') {
+        renderStage2D();
+        renderIsoDock();
+      }
+      renderRightPanel();
+      if (isMobileViewport() && state.highlightDim) closeMobileDrawers();
+    };
+  });
+
   const revBtn = document.getElementById('btn-grid-toggle-rev');
   if (revBtn) revBtn.onclick = toggleCurrentAnswer;
 
@@ -1344,6 +1386,7 @@ function renderIsoDock() {
   const hasLines = isoGrid.hasUserLines();
   isoUndoBtn.classList.toggle('hidden', !hasLines);
   isoClearBtn.classList.toggle('hidden', !hasLines);
+  isoDimNamesBtn?.classList.toggle('active', state.isoShowDimNames);
   isoUnitsBtn.classList.toggle('active', state.isoShowUnits);
   isoHiddenBtn.classList.toggle('active', state.isoShowHidden);
 }
@@ -2433,6 +2476,16 @@ isoClearBtn?.addEventListener('click', () => {
   isoGrid.clearDrawings();
   renderStage2D();
   renderIsoDock();
+});
+isoDimNamesBtn?.addEventListener('click', () => {
+  state.isoShowDimNames = !state.isoShowDimNames;
+  if (!state.isoShowDimNames) {
+    state.highlightDim = null;
+    scene3d.setHighlightDim(null);
+  }
+  renderStage2D();
+  renderIsoDock();
+  renderRightPanel();
 });
 isoUnitsBtn?.addEventListener('click', () => {
   state.isoShowUnits = !state.isoShowUnits;

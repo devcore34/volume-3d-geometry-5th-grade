@@ -136,7 +136,8 @@ function renderSingleFigureSvg(cubes, options = {}) {
   const fontSize = Math.max(spanRaw * 0.085, 0.24);
   const arrowLen = Math.max(spanRaw * 0.032, 0.085);
 
-  const drawDimArrow = (p1, p2, label, anchor = 'middle', lxOff = 0, lyOff = 0) => {
+  const drawDimArrow = (p1, p2, label, anchor = 'middle', lxOff = 0, lyOff = 0, customColor = null) => {
+    const strokeC = customColor || dimColor;
     expand(p1);
     expand(p2);
     const vx = p2[0] - p1[0];
@@ -168,29 +169,34 @@ function renderSingleFigureSvg(cubes, options = {}) {
 
     dimElements.push(`
       <g class="tb2d-dim">
-        <line x1="${p1[0].toFixed(3)}" y1="${p1[1].toFixed(3)}" x2="${p2[0].toFixed(3)}" y2="${p2[1].toFixed(3)}" stroke="${dimColor}" stroke-width="${(spanRaw * 0.0085).toFixed(4)}" />
-        <polyline points="${a1a[0].toFixed(3)},${a1a[1].toFixed(3)} ${p1[0].toFixed(3)},${p1[1].toFixed(3)} ${a1b[0].toFixed(3)},${a1b[1].toFixed(3)}" fill="none" stroke="${dimColor}" stroke-width="${(spanRaw * 0.0085).toFixed(4)}" stroke-linejoin="round" stroke-linecap="round"/>
-        <polyline points="${a2a[0].toFixed(3)},${a2a[1].toFixed(3)} ${p2[0].toFixed(3)},${p2[1].toFixed(3)} ${a2b[0].toFixed(3)},${a2b[1].toFixed(3)}" fill="none" stroke="${dimColor}" stroke-width="${(spanRaw * 0.0085).toFixed(4)}" stroke-linejoin="round" stroke-linecap="round"/>
-        <text x="${mx.toFixed(3)}" y="${my.toFixed(3)}" text-anchor="${anchor}" fill="${dimColor}" font-size="${fontSize.toFixed(3)}" font-weight="700" font-family="Manrope, Segoe UI, sans-serif">${label}</text>
+        <line x1="${p1[0].toFixed(3)}" y1="${p1[1].toFixed(3)}" x2="${p2[0].toFixed(3)}" y2="${p2[1].toFixed(3)}" stroke="${strokeC}" stroke-width="${(spanRaw * 0.011).toFixed(4)}" stroke-linecap="round" />
+        <polyline points="${a1a[0].toFixed(3)},${a1a[1].toFixed(3)} ${p1[0].toFixed(3)},${p1[1].toFixed(3)} ${a1b[0].toFixed(3)},${a1b[1].toFixed(3)}" fill="none" stroke="${strokeC}" stroke-width="${(spanRaw * 0.011).toFixed(4)}" stroke-linejoin="round" stroke-linecap="round"/>
+        <polyline points="${a2a[0].toFixed(3)},${a2a[1].toFixed(3)} ${p2[0].toFixed(3)},${p2[1].toFixed(3)} ${a2b[0].toFixed(3)},${a2b[1].toFixed(3)}" fill="none" stroke="${strokeC}" stroke-width="${(spanRaw * 0.011).toFixed(4)}" stroke-linejoin="round" stroke-linecap="round"/>
+        <text x="${mx.toFixed(3)}" y="${my.toFixed(3)}" text-anchor="${anchor}" fill="${strokeC}" font-size="${fontSize.toFixed(3)}" font-weight="800" font-family="Manrope, Segoe UI, sans-serif">${label}</text>
       </g>
     `);
   };
 
   if (hasDims) {
     const gap = Math.max(spanRaw * 0.075, 0.17);
+    const axisColors = {
+      x: isDark ? '#fb923c' : '#ea580c', // Ширина (оранжевый)
+      z: isDark ? '#38bdf8' : '#2563eb', // Длина (синий)
+      y: isDark ? '#4ade80' : '#16a34a', // Высота (зелёный)
+    };
     for (const d of dimensions) {
       if (d.axis === 'x') {
         const p1 = pt(0, sy, 0);
         const p2 = pt(sx, sy, 0);
-        drawDimArrow([p1[0], p1[1] - gap], [p2[0], p2[1] - gap], d.label, 'middle', 0, -gap * 0.65);
+        drawDimArrow([p1[0], p1[1] - gap], [p2[0], p2[1] - gap], d.label, 'middle', 0, -gap * 0.65, axisColors.x);
       } else if (d.axis === 'y') {
         const p1 = pt(sx, 0, 0);
         const p2 = pt(sx, sy, 0);
-        drawDimArrow([p1[0] + gap, p1[1]], [p2[0] + gap, p2[1]], d.label, 'start', gap * 0.75, fontSize * 0.35);
+        drawDimArrow([p1[0] + gap, p1[1]], [p2[0] + gap, p2[1]], d.label, 'start', gap * 0.75, fontSize * 0.35, axisColors.y);
       } else if (d.axis === 'z') {
         const p1 = pt(0, sy, 0);
         const p2 = pt(0, sy, sz);
-        drawDimArrow([p1[0] - gap * 0.9, p1[1] - gap * 0.3], [p2[0] - gap * 0.9, p2[1] - gap * 0.3], d.label, 'end', -gap * 0.65, -gap * 0.15);
+        drawDimArrow([p1[0] - gap * 0.9, p1[1] - gap * 0.3], [p2[0] - gap * 0.9, p2[1] - gap * 0.3], d.label, 'end', -gap * 0.65, -gap * 0.15, axisColors.z);
       }
     }
   }
