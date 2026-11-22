@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#f5f8fd" />
-    <title>Объём пространственных фигур в единичных кубах · 5 класс (3D-доска)</title>
+    <title>3D-геометрия · 5 класс (Объём и 3D-сетка · Minecraft)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -35,12 +35,15 @@
     <header id="top-bar" class="top-bar glass-panel">
       <div class="brand">
         <button id="btn-mobile-menu" class="icon-pill mobile-only" title="Выбрать фигуру" aria-label="Список фигур">
-          <span>☰</span><span class="mobile-btn-txt">Фигуры</span>
+          <span>☰</span>
         </button>
-        <div class="brand-cube desktop-only" aria-hidden="true">🧊</div>
-        <div class="brand-text desktop-only">
-          <div class="brand-title">Объём в единичных кубах</div>
-          <div class="brand-sub">5 класс · 3D-геометрия для доски</div>
+        <div class="topic-switch" role="group" aria-label="Выбор темы 5 класса">
+          <button id="btn-topic-volume" class="topic-pill active" title="Тема 1 · Стр. 111–114 · Объём в единичных кубах">
+            🧊 Объём
+          </button>
+          <button id="btn-topic-grid" class="topic-pill" title="Тема 2 · Стр. 115–117 · Изображение на 3D-сетке">
+            📐 3D-сетка
+          </button>
         </div>
       </div>
 
@@ -48,15 +51,18 @@
 
       <div class="top-actions">
         <div class="mode-switch" role="group" aria-label="Режим показа: 2D или 3D">
-          <button id="btn-mode-2d" class="mode-pill active" title="Показать плоский 2D-чертёж из учебника (Пробел)">
+          <button id="btn-mode-2d" class="mode-pill active" title="Показать 2D-чертёж / сетку из учебника (Пробел)">
             📖 2D
           </button>
           <button id="btn-mode-3d" class="mode-pill" title="Показать объёмную 3D-модель и крутить её (Пробел)">
             🧊 3D
           </button>
         </div>
+        <button id="btn-minecraft" class="icon-pill mc-toggle-btn" title="Включить кубики как в Minecraft! (C)">
+          <span>⛏️</span><span class="btn-label">Майнкрафт</span>
+        </button>
         <button id="btn-mobile-info" class="icon-pill mobile-only" title="Объяснение и задание">
-          <span>📋</span><span class="mobile-btn-txt">Задание</span>
+          <span>📋</span>
         </button>
         <button id="btn-marker" class="icon-pill" title="Рисовать маркером поверх чертежа (M)">
           <span>✏️</span><span class="btn-label">Маркер</span>
@@ -83,6 +89,7 @@
       <button id="zen-mode-2d" class="zen-btn" title="Показать 2D из учебника">📖 2D</button>
       <button id="zen-mode-3d" class="zen-btn primary" title="Показать в 3D">🧊 3D</button>
       <div class="bar-sep"></div>
+      <button id="zen-mc" class="zen-btn" title="Кубики как в Minecraft (C)">⛏️</button>
       <button id="zen-answer" class="zen-btn answer-toggle-btn" title="Показать или скрыть ответ (Enter)">👁 Ответ</button>
     </div>
 
@@ -145,6 +152,47 @@
       <span class="restore-text">Задание</span>
       <span>‹</span>
     </button>
+
+    <!-- Floating Minecraft Block Palette (appears above 3D dock when ⛏️ Minecraft mode is ON!) -->
+    <div id="mc-bar" class="mc-bar glass-panel hidden" role="group" aria-label="Выбор блоков Minecraft"></div>
+
+    <!-- Bottom Isometric Dot-Grid Dock (Topic 2 · 2D dot-grid mode) -->
+    <footer id="bottom-dock-iso" class="bottom-dock glass-panel hidden">
+      <div class="dock-group">
+        <span class="dock-label">Пошагово на сетке</span>
+        <div class="dock-buttons">
+          <button id="iso-play-btn" class="dock-btn res-play-btn" title="Автоматически показать 4 шага рисования">▶ Пошагово</button>
+          <button class="dock-btn iso-step-btn" data-iso-step="0" title="Пустая сетка">0</button>
+          <button class="dock-btn iso-step-btn" data-iso-step="1" title="Шаг 1: верхняя грань">1</button>
+          <button class="dock-btn iso-step-btn" data-iso-step="2" title="Шаг 2: высота вниз">2</button>
+          <button class="dock-btn iso-step-btn" data-iso-step="3" title="Шаг 3: нижние рёбра">3</button>
+          <button class="dock-btn iso-step-btn" data-iso-step="4" title="Шаг 4: готовая фигура">4</button>
+        </div>
+      </div>
+
+      <div class="dock-divider"></div>
+
+      <div class="dock-group">
+        <span class="dock-label">Рисовать по точкам</span>
+        <div class="dock-buttons">
+          <button id="iso-draw-btn" class="dock-btn" title="Чертить линии с примагничиванием к точкам сетки">✍️ Рисовать</button>
+          <button id="iso-undo-btn" class="dock-btn hidden" title="Отменить последнюю линию">↩️</button>
+          <button id="iso-clear-btn" class="dock-btn hidden" title="Очистить свои линии">🗑</button>
+          <button id="iso-units-btn" class="dock-btn" title="Показать деление на единичные кубики внутри">🧱 Кубики</button>
+          <button id="iso-hidden-btn" class="dock-btn" title="Показать невидимые задние рёбра пунктиром">┄ Рёбра</button>
+        </div>
+      </div>
+
+      <div class="dock-divider"></div>
+
+      <div class="dock-group">
+        <span class="dock-label">Переход</span>
+        <div class="dock-buttons">
+          <button id="iso-to-3d-btn" class="dock-btn dock-btn-primary" title="Показать объёмную 3D-фигуру и крутить (Пробел)">🧊 В 3D</button>
+          <button id="iso-answer-btn" class="dock-btn dock-btn-answer answer-toggle-btn" title="Показать или скрыть ответ (Enter)">👁 Ответ</button>
+        </div>
+      </div>
+    </footer>
 
     <!-- Bottom 2D Action Dock (shown in 2D textbook mode — big CTA to reveal 3D!) -->
     <footer id="bottom-dock-2d" class="bottom-dock-2d glass-panel">

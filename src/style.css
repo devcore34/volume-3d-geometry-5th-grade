@@ -177,8 +177,8 @@ body.perf-lite .glass-panel {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 7px 12px;
+  gap: 8px;
+  padding: 7px 10px;
   border-radius: var(--radius-lg);
 }
 
@@ -224,17 +224,18 @@ body.perf-lite .glass-panel {
 .section-tab {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   border: 1px solid transparent;
   background: var(--surface);
   color: var(--text-muted);
   font-family: inherit;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 700;
-  padding: 8px 13px;
+  padding: 7px 11px;
   border-radius: 11px;
   cursor: pointer;
   white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.16s ease;
 }
 .section-tab:hover {
@@ -1077,16 +1078,16 @@ body[data-theme='dark'] .zen-btn.active {
   visibility: visible;
   opacity: 1;
   transform: scale(1);
-  transition: opacity 0.28s ease, transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-    visibility 0s linear 0s, top 0.25s ease, left 0.25s ease, right 0.25s ease, bottom 0.25s ease;
+  transition: opacity 0.16s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 0s, top 0.2s ease, left 0.2s ease, right 0.2s ease, bottom 0.2s ease;
 }
 .stage-2d.is-hidden-3d {
   opacity: 0;
-  transform: scale(0.93);
+  transform: scale(0.95);
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.28s ease, transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-    visibility 0s linear 0.3s, top 0.25s ease, left 0.25s ease, right 0.25s ease, bottom 0.25s ease;
+  transition: opacity 0.14s ease, transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 0.15s, top 0.2s ease, left 0.2s ease, right 0.2s ease, bottom 0.2s ease;
 }
 
 .tb2d-sheet {
@@ -1374,6 +1375,8 @@ body.zen-mode .answer-banner {
   border-radius: 999px;
   background: #10b981;
   color: #ffffff;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .answer-banner-close {
   border: none;
@@ -1980,7 +1983,7 @@ body[data-theme='dark'] .live-hud.is-res-full {
     font-size: 13.5px;
   }
   .answer-banner {
-    top: calc(104px + env(safe-area-inset-top, 0px));
+    top: var(--mobile-top-offset, 146px);
     max-width: calc(100vw - 16px);
     padding: 7px 12px;
     font-size: 12.5px;
@@ -2015,9 +2018,9 @@ body[data-theme='dark'] .live-hud.is-res-full {
     font-size: 9.5px;
   }
 
-  /* Top-center HUD & Marker bar positioned neatly below 2-row mobile header */
+  /* Top-center HUD & Marker bar positioned neatly below dynamic mobile header height */
   .live-hud {
-    top: calc(104px + env(safe-area-inset-top, 0px));
+    top: var(--mobile-top-offset, 146px);
     max-width: calc(100vw - 16px);
     padding: 6px 11px;
     font-size: 12px;
@@ -2034,7 +2037,7 @@ body[data-theme='dark'] .live-hud.is-res-full {
   }
 
   .marker-bar {
-    top: calc(104px + env(safe-area-inset-top, 0px));
+    top: var(--mobile-top-offset, 146px);
     max-width: calc(100vw - 16px);
     overflow-x: auto;
     padding: 6px 10px;
@@ -2076,5 +2079,336 @@ body[data-theme='dark'] .live-hud.is-res-full {
   .dim-badge {
     font-size: 11.5px;
     padding: 3px 8px;
+  }
+}
+
+/* ==================== 2-TOPIC SWITCHER (ОБЪЁМ | 3D-СЕТКА) ==================== */
+.topic-switch {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  gap: 3px;
+}
+.topic-pill {
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.16s ease;
+}
+.topic-pill:hover {
+  color: var(--text-main);
+}
+.topic-pill.active {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(99, 102, 241, 0.35);
+}
+
+/* ==================== MINECRAFT BLOCK MODE ==================== */
+.mc-toggle-btn.active {
+  background: linear-gradient(135deg, #4f9e28 0%, #3b7e1c 100%) !important;
+  border-color: #36731a !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(79, 158, 40, 0.42);
+}
+
+.mc-bar {
+  position: fixed;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 42;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  max-width: calc(100vw - 24px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.mc-bar::-webkit-scrollbar {
+  display: none;
+}
+.mc-bar-tag {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #3f821e;
+  padding: 0 6px 0 4px;
+  white-space: nowrap;
+}
+body[data-theme='dark'] .mc-bar-tag {
+  color: #86efac;
+}
+.mc-block-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  background: var(--surface);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.14s ease;
+}
+.mc-block-btn:hover {
+  background: var(--surface-hover);
+}
+.mc-block-btn.active {
+  background: #4f9e28;
+  border-color: #2f6615;
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(79, 158, 40, 0.35);
+}
+
+/* ==================== TOPIC 2: ISOMETRIC DOT-GRID STUDIO ==================== */
+.iso-sheet {
+  padding: 12px 18px 14px;
+}
+.iso-step-banner {
+  margin-top: 8px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  flex-shrink: 0;
+}
+.iso-single-wrap {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 4px 2px;
+}
+.iso-double-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding-top: 10px;
+}
+.iso-panel-cell {
+  min-height: 0;
+  border-radius: 16px;
+  border: 1.5px solid var(--border-soft);
+  background: var(--surface);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  overflow: hidden;
+}
+.iso-panel-svg-wrap {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.iso-panel-caption {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text-main);
+  text-align: center;
+  line-height: 1.25;
+  padding: 2px 4px;
+  flex-shrink: 0;
+}
+.iso-svg {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  touch-action: none;
+}
+.iso-svg.is-draw-mode {
+  cursor: crosshair;
+}
+.iso-anim {
+  animation: isoFade 0.28s ease;
+}
+@keyframes isoFade {
+  from {
+    opacity: 0.15;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.dock-btn-primary {
+  background: linear-gradient(135deg, #2563eb 0%, #6366f1 100%) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+.flip-btn-3d {
+  background: linear-gradient(135deg, #0ea5e9 0%, #10b981 100%) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+}
+
+.iso-dim-chips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.iso-dim-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 7px 6px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  text-align: center;
+}
+.iso-dim-chip span {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+.iso-dim-chip strong {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--accent-text);
+}
+.iso-step-caption {
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+.iso-step-pills {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 11px;
+  padding: 3px;
+}
+.iso-step-pills .seg-tab {
+  padding: 0 2px;
+  font-size: 11px;
+  height: 29px;
+}
+
+/* Lift toast & orbit hint above floating Minecraft block bar so they never overlap */
+body.mc-active .orbit-hint {
+  bottom: 134px;
+}
+body.mc-active .toast {
+  bottom: 138px;
+}
+
+/* Keep ALL 4 section tabs visible without clipping on 1280px–1480px laptops & electronic boards */
+@media (max-width: 1520px) {
+  #btn-theme .btn-label,
+  #btn-zen .btn-label {
+    display: none;
+  }
+  #btn-theme,
+  #btn-zen {
+    padding: 0 10px;
+  }
+  .topic-pill {
+    padding: 0 9px;
+    font-size: 12.5px;
+  }
+  .section-tab {
+    padding: 7px 10px;
+    font-size: 12.5px;
+  }
+  .icon-pill {
+    padding: 0 10px;
+    font-size: 12.5px;
+  }
+}
+
+@media (max-width: 1220px) {
+  #btn-marker .btn-label {
+    display: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .top-bar {
+    padding: 5px 7px;
+    row-gap: 5px;
+  }
+  .topic-pill {
+    height: 28px;
+    padding: 0 7px;
+    font-size: 11.5px;
+  }
+  .section-tab {
+    padding: 5px 8px;
+    font-size: 11.5px;
+  }
+  .mc-bar {
+    bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+    left: 8px;
+    right: 8px;
+    transform: none;
+    max-width: none;
+    padding: 4px 7px;
+    justify-content: flex-start;
+  }
+  .mc-bar-tag {
+    display: none;
+  }
+  body.mc-active .orbit-hint {
+    bottom: calc(122px + env(safe-area-inset-bottom, 0px));
+  }
+  body.mc-active .toast {
+    bottom: calc(124px + env(safe-area-inset-bottom, 0px));
+  }
+  .iso-step-banner {
+    font-size: 11.5px;
+    padding: 5px 8px;
+  }
+  .iso-panel-caption {
+    font-size: 11.5px;
+  }
+  .iso-double-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 8px;
   }
 }

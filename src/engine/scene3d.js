@@ -3,6 +3,12 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { PALETTES, getBounds } from '../data/lessons.js';
+import { GRID_PALETTES, makeBoxCubes } from '../data/gridLessons.js';
+import {
+  createMinecraftCubeMaterial,
+  forEachMaterial,
+  disposeMeshMaterial,
+} from './minecraftTextures.js';
 
 function createCubeFaceTexture() {
   const size = 256;
@@ -52,6 +58,13 @@ export class GeometryScene {
     this.showNumbers = false;
     this.countVisible = null; // null = show all, integer 0..N = step animation count
     this.interactionMode = 'orbit'; // 'orbit' | 'count' | 'peel'
+
+    // Minecraft voxel block style + Topic 2 grid-box flip state
+    this.minecraftMode = false;
+    this.minecraftBlock = 'grass'; // 'grass' | 'oak' | 'bricks' | 'diamond' | 'gold' | 'emerald'
+    this.colorCodedFaces = false;
+    this.gridBoxInfo = null; // { a, b, h, flipped }
+    this.flipAnim = null; // { startRot, goalRot, startY, goalY, t, duration }
 
     // Builder state
     this.builderTool = 'add'; // 'add' | 'remove'
@@ -274,6 +287,8 @@ export class GeometryScene {
     this.faceTexture = createCubeFaceTexture();
     // segments=1 keeps the crisp chamfered bevel highlights with ~6x fewer triangles (much faster on electronic boards & phones!)
     this.cubeGeo = new RoundedBoxGeometry(0.988, 0.988, 0.988, 1, 0.036);
+    // Crisp 6-group BoxGeometry used for authentic Minecraft blocks & 3-color coded faces
+    this.mcBoxGeo = new THREE.BoxGeometry(0.992, 0.992, 0.992);
     this.edgeGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(0.996, 0.996, 0.996));
 
     // Hover preview ghost cube for 3D Builder
@@ -391,7 +406,13 @@ export class GeometryScene {
         if (child.isCSS2DObject && child.element && child.element.parentNode) {
           child.element.parentNode.removeChild(child.element);
         }
-        if (disposeGeom && child.geometry && child.geometry !== this.cubeGeo && child.geometry !== this.edgeGeo) {
+        if (
+          disposeGeom &&
+          child.geometry &&
+          child.geometry !== this.cubeGeo &&
+          child.geometry !== this.mcBoxGeo &&
+          child.geometry !== this.edgeGeo
+        ) {
           child.geometry.dispose();
         }
         if (child.material) {
@@ -409,6 +430,12 @@ export class GeometryScene {
     cleanGroup(this.builderFloorGroup, true);
     cleanGroup(this.reservoirGroup, true);
     this.reservoirMeta = null;
+
+    this.cubesGroup.rotation.set(0, 0, 0);
+    this.cubesGroup.position.set(0, 0, 0);
+    this.colorCodedFaces = false;
+    this.gridBoxInfo = null;
+    this.flipAnim = null;
 
     this.cubeEntries = [];
     this.compareMeta = [];
@@ -537,8 +564,155 @@ export class GeometryScene {
     this.currentHalfWidth = Math.max((bounds.sx + bounds.sz * 0.65) * 0.52 + 0.55, 1.3);
     this.currentHalfHeight = Math.max((bounds.sy + bounds.sz * 0.4) * 0.55 + 0.5, 1.25);
 
+    this._rebuildAllCubeMaterials();
     this._applyVisualStates();
     this.frameCamera(options.view || 'textbook', !options.instant);
+  }
+
+  // ==================== TOPIC 2: LOAD GRID CUBE / CUBOID (PAGES 115–117) ====================
+  loadGridBox(box, options = {}) {
+    this._clearDynamicScene();
+    this.mode = 'figure';
+    this.countVisible = null;
+    this.layerLimit = null;
+
+    const { a, b, h } = box;
+    const cubes = makeBoxCubes(a, b, h); // x in [0..b-1], y in [0..h-1], z in [0..a-1]
+    const gPal = GRID_PALETTES[options.palette] || GRID_PALETTES.purple;
+    const paletteKey = options.paletteKey || 'violet';
+
+    this.colorCodedFaces = Boolean(options.colorCodedFaces);
+    this.gridBoxInfo = { a, b, h, flipped: false, customFill: gPal.fill3d };
+
+    const sorted = this._sortCubesPedagogically(cubes);
+    const bounds = getBounds(sorted);
+    this.currentBounds = bounds;
+
+    // Place center at (0, 0, 0) in cubesGroup local space, then shift cubesGroup.position.y = (h - 1)/2
+    // so smooth 90-degree flip around Z pivots naturally around the cuboid's exact center!
+    const shiftX = -(bounds.minX + bounds.maxX) / 2;
+    const shiftY = -(bounds.minY + bounds.maxY) / 2;
+    const shiftZ = -(bounds.minZ + bounds.maxZ) / 2;
+    this.figureOffset = [shiftX, -bounds.minY, shiftZ];
+    this.cubesGroup.position.set(0, (h - 1) / 2, 0);
+    this.cubesGroup.rotation.set(0, 0, 0);
+
+    const localCenter = new THREE.Vector3(0, 0, 0);
+    sorted.forEach((coord, idx) => {
+      const entry = this._createCubeEntry({
+        coord,
+        offset: [shiftX, shiftY, shiftZ],
+        groupIndex: 0,
+        groupCenter: localCenter,
+        paletteKey,
+        id: `gb_${idx}_${coord.join('_')}`,
+        animateIn: true,
+      });
+      entry.customFill = gPal.fill3d;
+    });
+
+    this.currentDimensionsSpec = [
+      { axis: 'x', label: `${a} ед.` },
+      { axis: 'y', label: `${h} ед.` },
+      { axis: 'z', label: `${b} ед.` },
+    ];
+    this.showDimensions = options.showDimensions !== false;
+    this._buildDimensions(bounds, this.figureOffset, this.currentDimensionsSpec);
+
+    const maxSpan = Math.max(a, b, h);
+    this.currentCenter = new THREE.Vector3(0, (Math.max(h, a) - 1) * 0.44, 0);
+    this.currentRadius = Math.max(Math.hypot(a, b, h) * 0.56, 1.15);
+    this.currentHalfWidth = Math.max((a + b * 0.72) * 0.52 + 0.65, 1.45);
+    this.currentHalfHeight = Math.max((maxSpan + (a + b) * 0.25) * 0.54 + 0.55, 1.4);
+
+    this._rebuildAllCubeMaterials();
+    this._applyVisualStates();
+    // Use textbook symmetric isometric camera angle so left-front & right-front match pages 115–117!
+    this.frameCamera('iso', !options.instant);
+  }
+
+  // Smooth 90-degree 3D tip-over animation for Page 117 "в двух различных положениях"!
+  flipGridBox(targetFlipped) {
+    if (!this.gridBoxInfo) return;
+    const { a, h } = this.gridBoxInfo;
+    const nextFlipped = typeof targetFlipped === 'boolean' ? targetFlipped : !this.gridBoxInfo.flipped;
+    this.gridBoxInfo.flipped = nextFlipped;
+
+    const goalRot = nextFlipped ? -Math.PI / 2 : 0;
+    const goalY = nextFlipped ? (a - 1) / 2 : (h - 1) / 2;
+
+    this.flipAnim = {
+      startRot: this.cubesGroup.rotation.z,
+      goalRot,
+      startY: this.cubesGroup.position.y,
+      goalY,
+      t: 0,
+      duration: 0.72,
+    };
+
+    // Hide static dimension brackets during flipped position so they don't misalign, or update cleanly
+    this.dimGroup.visible = this.showDimensions && !nextFlipped;
+    this.requestRender(true);
+  }
+
+  // ==================== MINECRAFT BLOCK TEXTURE ENGINE ====================
+  setMinecraftMode(enabled, blockType = null) {
+    this.minecraftMode = Boolean(enabled);
+    if (blockType) this.minecraftBlock = blockType;
+    this._rebuildAllCubeMaterials();
+    this._applyVisualStates();
+  }
+
+  _createColorCodedMaterial() {
+    // BoxGeometry face order: +x (right=blue), -x (left=blue), +y (top=green), -y (bottom=green), +z (front-left=yellow), -z (back=yellow)
+    const mk = (hex) =>
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color(hex),
+        map: this.faceTexture,
+        roughness: 0.36,
+        metalness: 0.04,
+      });
+    return [
+      mk('#8ac7e6'), // +x right (blue -> rotates to top!)
+      mk('#8ac7e6'), // -x left
+      mk('#a3d997'), // +y top (green -> rotates to right!)
+      mk('#a3d997'), // -y bottom
+      mk('#f7ee91'), // +z front-left (yellow -> stays front-left!)
+      mk('#f7ee91'), // -z back
+    ];
+  }
+
+  _rebuildAllCubeMaterials() {
+    // Build fast lookup to detect which cubes have air directly above them (for authentic Grass top / Dirt below!)
+    const occupied = new Set();
+    for (const e of this.cubeEntries) {
+      occupied.add(`${e.groupIndex}|${e.coord[0]},${e.coord[1]},${e.coord[2]}`);
+    }
+
+    for (const entry of this.cubeEntries) {
+      disposeMeshMaterial(entry.mesh);
+
+      if (this.minecraftMode) {
+        const aboveKey = `${entry.groupIndex}|${entry.coord[0]},${entry.coord[1] + 1},${entry.coord[2]}`;
+        const isTopExposed = !occupied.has(aboveKey);
+        entry.mesh.geometry = this.mcBoxGeo;
+        entry.mesh.material = createMinecraftCubeMaterial(this.minecraftBlock, isTopExposed);
+      } else if (this.colorCodedFaces) {
+        entry.mesh.geometry = this.mcBoxGeo;
+        entry.mesh.material = this._createColorCodedMaterial();
+      } else {
+        const pal = PALETTES[entry.paletteKey] || PALETTES.cyan;
+        const fillHex = entry.customFill || pal.fill;
+        entry.mesh.geometry = this.cubeGeo;
+        entry.mesh.material = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(fillHex),
+          map: this.faceTexture,
+          roughness: 0.36,
+          metalness: 0.04,
+        });
+      }
+    }
+    this.shadowsDirty = true;
   }
 
   // ==================== LOAD 3D GLASS RESERVOIR FILLING DEMO ====================
@@ -611,6 +785,7 @@ export class GeometryScene {
     this.currentHalfWidth = Math.max((nx + nz * 0.68) * 0.55 + 0.85, 2.0);
     this.currentHalfHeight = Math.max((ny + 1.35 + nz * 0.35) * 0.54 + 0.55, 2.1);
 
+    this._rebuildAllCubeMaterials();
     this._applyVisualStates();
     this.frameCamera('textbook', !options.instant);
   }
@@ -802,8 +977,10 @@ export class GeometryScene {
           entry.reservoirDrop = 0;
           entry.mesh.position.set(entry.basePos.x, entry.reservoirStartY, entry.basePos.z);
           entry.mesh.scale.setScalar(0.9);
-          entry.mesh.material.transparent = true;
-          entry.mesh.material.opacity = 0.02;
+          forEachMaterial(entry.mesh, (m) => {
+            m.transparent = true;
+            m.opacity = 0.02;
+          });
         }
       } else {
         entry.reservoirActive = false;
@@ -915,6 +1092,7 @@ export class GeometryScene {
     this.currentHalfHeight = Math.max(maxY * 0.68 + maxZ * 0.35 + 0.9, 2.0);
 
     this.setCompareReveal(Boolean(options.revealAnswers), options.highlightIds || []);
+    this._rebuildAllCubeMaterials();
     this._applyVisualStates();
     this.frameCamera('textbook', true);
   }
@@ -988,6 +1166,7 @@ export class GeometryScene {
     this.currentRadius = 3.2;
     this.currentHalfWidth = 3.4;
     this.currentHalfHeight = 2.6;
+    this._rebuildAllCubeMaterials();
     this._applyVisualStates();
     this.frameCamera('textbook', true);
     this._emitBuilderState();
@@ -1000,7 +1179,7 @@ export class GeometryScene {
       if (entry.labelEl && entry.labelEl.parentNode) {
         entry.labelEl.parentNode.removeChild(entry.labelEl);
       }
-      entry.mesh.material.dispose();
+      disposeMeshMaterial(entry.mesh);
       entry.edges.material.dispose();
     }
     this.cubesGroup.clear();
@@ -1016,6 +1195,7 @@ export class GeometryScene {
     for (const [x, y, z] of cubes) {
       this._addBuilderCubeInternal([x + sx, y + sy, z + sz], true);
     }
+    this._rebuildAllCubeMaterials();
     this._applyVisualStates();
     this._emitBuilderState();
   }
@@ -1047,7 +1227,7 @@ export class GeometryScene {
       entry.labelEl.parentNode.removeChild(entry.labelEl);
     }
     this.cubesGroup.remove(entry.mesh);
-    entry.mesh.material.dispose();
+    disposeMeshMaterial(entry.mesh);
     entry.edges.material.dispose();
     this.cubeEntries = this.cubeEntries.filter((e) => e !== entry);
   }
@@ -1128,6 +1308,7 @@ export class GeometryScene {
       if (hit.type === 'cube') {
         this._removeBuilderCubeInternal(hit.entry);
         this._setHoveredEntry(null);
+        if (this.minecraftMode) this._rebuildAllCubeMaterials();
         this._applyVisualStates();
         this._emitBuilderState();
       }
@@ -1136,6 +1317,7 @@ export class GeometryScene {
 
     const added = this._addBuilderCubeInternal(hit.target, true);
     if (added) {
+      if (this.minecraftMode) this._rebuildAllCubeMaterials();
       this._applyVisualStates();
       this._emitBuilderState();
       this._updateBuilderGhost();
@@ -1553,6 +1735,7 @@ export class GeometryScene {
     this.lastPreset = preset;
     const dirs = {
       textbook: new THREE.Vector3(0.56, 0.50, 0.94).normalize(),
+      iso: new THREE.Vector3(0.76, 0.62, 0.76).normalize(),
       top: new THREE.Vector3(0.001, 0.996, 0.09).normalize(),
       front: new THREE.Vector3(0, 0.08, 0.997).normalize(),
       side: new THREE.Vector3(0.997, 0.08, 0).normalize(),
@@ -1709,58 +1892,77 @@ export class GeometryScene {
       const isBuilderRemoveHover =
         this.mode === 'builder' && this.builderTool === 'remove' && isHovered;
 
-      // Material color
-      if (isBuilderRemoveHover) {
-        mat.color.set('#ef4444');
-        mat.emissive.set('#991b1b');
-        mat.emissiveIntensity = 0.25;
-      } else if (isCounted) {
-        mat.color.set('#fbbf24');
-        mat.emissive.set('#d97706');
-        mat.emissiveIntensity = 0.16;
-      } else if (isHovered) {
-        mat.color.set(pal.light);
-        mat.emissive.set(pal.fill);
-        mat.emissiveIntensity = 0.18;
-      } else if (onActiveSlice) {
-        mat.color.set(pal.light);
-        mat.emissive.set(pal.fill);
-        mat.emissiveIntensity = 0.08;
-      } else {
-        mat.color.set(pal.fill);
-        mat.emissive.set('#000000');
-        mat.emissiveIntensity = 0;
-      }
+      // Material color (supports single Material AND 6-face Material[] for Minecraft Grass & 3-color faces!)
+      const defaultFill = entry.customFill || pal.fill;
+      const useTrueTextureColor = this.minecraftMode || this.colorCodedFaces;
 
-      // Transparency / X-Ray / Ghost
+      forEachMaterial(entry.mesh, (mat) => {
+        if (isBuilderRemoveHover) {
+          mat.color.set('#ef4444');
+          mat.emissive.set('#991b1b');
+          mat.emissiveIntensity = 0.25;
+        } else if (isCounted) {
+          mat.color.set('#fbbf24');
+          mat.emissive.set('#d97706');
+          mat.emissiveIntensity = 0.16;
+        } else if (isHovered) {
+          if (!useTrueTextureColor) mat.color.set(pal.light);
+          mat.emissive.set(this.minecraftMode ? '#ffffff' : pal.fill);
+          mat.emissiveIntensity = 0.18;
+        } else if (onActiveSlice) {
+          if (!useTrueTextureColor) mat.color.set(pal.light);
+          mat.emissive.set(this.minecraftMode ? '#ffffff' : pal.fill);
+          mat.emissiveIntensity = 0.1;
+        } else {
+          if (this.minecraftMode) {
+            mat.color.set('#ffffff');
+          } else if (!this.colorCodedFaces) {
+            mat.color.set(defaultFill);
+          }
+          mat.emissive.set('#000000');
+          mat.emissiveIntensity = 0;
+        }
+
+        // Transparency / X-Ray / Ghost
+        if (aboveSlice) {
+          mat.transparent = true;
+          mat.opacity = isDark ? 0.08 : 0.07;
+          mat.depthWrite = false;
+        } else if (isPeeled) {
+          mat.transparent = true;
+          mat.opacity = 0.14;
+          mat.depthWrite = false;
+        } else if (this.xray) {
+          mat.transparent = true;
+          mat.opacity = isDark ? 0.28 : 0.26;
+          mat.depthWrite = false;
+        } else {
+          mat.transparent = false;
+          mat.opacity = 1;
+          mat.depthWrite = true;
+        }
+      });
+
       if (aboveSlice) {
-        mat.transparent = true;
-        mat.opacity = isDark ? 0.08 : 0.07;
-        mat.depthWrite = false;
         entry.mesh.castShadow = false;
         edgeMat.color.set(isDark ? '#64748b' : '#94a3b8');
-        edgeMat.opacity = isDark ? 0.28 : 0.28;
+        edgeMat.opacity = 0.28;
       } else if (isPeeled) {
-        mat.transparent = true;
-        mat.opacity = 0.14;
-        mat.depthWrite = false;
         entry.mesh.castShadow = false;
         edgeMat.color.set(isDark ? '#94a3b8' : '#64748b');
         edgeMat.opacity = 0.45;
       } else if (this.xray) {
-        mat.transparent = true;
-        mat.opacity = isDark ? 0.28 : 0.26;
-        mat.depthWrite = false;
         entry.mesh.castShadow = false;
         edgeMat.color.set(isDark ? pal.light : pal.dark);
         edgeMat.opacity = 0.92;
       } else {
-        mat.transparent = false;
-        mat.opacity = 1;
-        mat.depthWrite = true;
         entry.mesh.castShadow = true;
-        edgeMat.color.set(isDark ? pal.edgeDark : pal.edgeLight);
-        edgeMat.opacity = isDark ? 0.72 : 0.86;
+        edgeMat.color.set(
+          this.minecraftMode
+            ? (isDark ? '#0f172a' : '#1e293b')
+            : (isDark ? pal.edgeDark : pal.edgeLight)
+        );
+        edgeMat.opacity = this.minecraftMode ? 0.34 : isDark ? 0.72 : 0.86;
       }
 
       // Floating number badge on cube (must toggle labelObj.visible because CSS2DRenderer resets display!)
@@ -1818,6 +2020,24 @@ export class GeometryScene {
       if (u >= 1) this.camAnim = null;
     }
 
+    // Smooth 90-degree tip-over flip animation (Topic 2 · Page 117 "в двух положениях")
+    if (this.flipAnim) {
+      anyMotion = true;
+      geometryMoved = true;
+      this.flipAnim.t += dt / this.flipAnim.duration;
+      const u = Math.min(this.flipAnim.t, 1);
+      const ease = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+      // Gentle arc lift while tipping so corners clear the studio floor cleanly!
+      const lift = Math.sin(u * Math.PI) * 0.55;
+      this.cubesGroup.rotation.z = THREE.MathUtils.lerp(this.flipAnim.startRot, this.flipAnim.goalRot, ease);
+      this.cubesGroup.position.y = THREE.MathUtils.lerp(this.flipAnim.startY, this.flipAnim.goalY, ease) + lift;
+      if (u >= 1) {
+        this.cubesGroup.rotation.z = this.flipAnim.goalRot;
+        this.cubesGroup.position.y = this.flipAnim.goalY;
+        this.flipAnim = null;
+      }
+    }
+
     // Smooth explode & pop-in / reservoir drop animation per cube
     const posLerp = 1 - Math.exp(-12 * dt);
     for (const entry of this.cubeEntries) {
@@ -1839,13 +2059,17 @@ export class GeometryScene {
           entry.mesh.scale.setScalar(s);
           const fade = Math.min(1, p / 0.24);
           if (fade < 1) {
-            entry.mesh.material.transparent = true;
-            entry.mesh.material.opacity = fade;
-            entry.edges.material.opacity = fade * 0.86;
+            forEachMaterial(entry.mesh, (m) => {
+              m.transparent = true;
+              m.opacity = fade;
+            });
+            entry.edges.material.opacity = fade * (this.minecraftMode ? 0.34 : 0.86);
           } else if (!this.xray) {
-            entry.mesh.material.transparent = false;
-            entry.mesh.material.opacity = 1;
-            entry.edges.material.opacity = this.theme === 'dark' ? 0.72 : 0.86;
+            forEachMaterial(entry.mesh, (m) => {
+              m.transparent = false;
+              m.opacity = 1;
+            });
+            entry.edges.material.opacity = this.minecraftMode ? 0.34 : this.theme === 'dark' ? 0.72 : 0.86;
           }
         } else {
           entry.mesh.position.copy(entry.basePos);
@@ -1861,8 +2085,9 @@ export class GeometryScene {
       const factor = this.explode * 0.68;
 
       const tx = entry.basePos.x + dirX * factor;
-      // Keep cubes above floor when exploding
-      const ty = Math.max(0, entry.basePos.y + (dirY + 0.45) * factor * 1.15);
+      // Keep cubes above floor when exploding (account for cubesGroup Y offset on gridBox)
+      const minLocalY = -this.cubesGroup.position.y;
+      const ty = Math.max(minLocalY, entry.basePos.y + (dirY + (this.gridBoxInfo ? 0 : 0.45)) * factor * 1.15);
       const tz = entry.basePos.z + dirZ * factor;
 
       const dx = tx - entry.mesh.position.x;
