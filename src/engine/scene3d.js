@@ -696,7 +696,7 @@ export class GeometryScene {
   }
 
   _createColorCodedMaterial() {
-    // BoxGeometry face order: +x (right=blue), -x (left=blue), +y (top=green), -y (bottom=green), +z (front-left=yellow), -z (back=yellow)
+    // Reuse 3 shared face-pair materials instead of 6 distinct materials per cube
     const mk = (hex) =>
       new THREE.MeshStandardMaterial({
         color: new THREE.Color(hex),
@@ -704,14 +704,10 @@ export class GeometryScene {
         roughness: 0.36,
         metalness: 0.04,
       });
-    return [
-      mk('#8ac7e6'), // +x right (blue -> rotates to top!)
-      mk('#8ac7e6'), // -x left
-      mk('#a3d997'), // +y top (green -> rotates to right!)
-      mk('#a3d997'), // -y bottom
-      mk('#f7ee91'), // +z front-left (yellow -> stays front-left!)
-      mk('#f7ee91'), // -z back
-    ];
+    const blue = mk('#8ac7e6');
+    const green = mk('#a3d997');
+    const yellow = mk('#f7ee91');
+    return [blue, blue, green, green, yellow, yellow];
   }
 
   _rebuildAllCubeMaterials() {
@@ -2094,7 +2090,6 @@ export class GeometryScene {
     // Smooth 90-degree tip-over flip animation (Topic 2 · Page 117 "в двух положениях")
     if (this.flipAnim) {
       anyMotion = true;
-      geometryMoved = true;
       this.flipAnim.t += dt / this.flipAnim.duration;
       const u = Math.min(this.flipAnim.t, 1);
       const ease = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
@@ -2106,6 +2101,8 @@ export class GeometryScene {
         this.cubesGroup.rotation.z = this.flipAnim.goalRot;
         this.cubesGroup.position.y = this.flipAnim.goalY;
         this.flipAnim = null;
+        // Rebake shadow map once after landing instead of 60x/sec mid-flip (3x smoother on electronic boards!)
+        this.shadowsDirty = true;
       }
     }
 

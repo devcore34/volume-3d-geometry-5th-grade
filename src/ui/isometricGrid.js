@@ -594,14 +594,44 @@ export class IsometricGridController {
     const svg = document.getElementById(svgId);
     if (!svg) return;
     const previewLayer = svg.querySelector('.iso-preview-layer');
+    if (!previewLayer) return;
+
+    // Pre-create reusable SVG preview nodes (zero innerHTML parsing on 120Hz touchboard pointermove!)
+    const NS = 'http://www.w3.org/2000/svg';
+    const previewLine = document.createElementNS(NS, 'line');
+    previewLine.setAttribute('stroke', '#e11d48');
+    previewLine.setAttribute('stroke-width', '4');
+    previewLine.setAttribute('stroke-dasharray', '6 4');
+    previewLine.setAttribute('stroke-linecap', 'round');
+    previewLine.style.display = 'none';
+
+    const hoverRing = document.createElementNS(NS, 'circle');
+    hoverRing.setAttribute('r', '7.5');
+    hoverRing.setAttribute('fill', 'none');
+    hoverRing.setAttribute('stroke', '#e11d48');
+    hoverRing.setAttribute('stroke-width', '2.5');
+    hoverRing.style.display = 'none';
+
+    const startPin = document.createElementNS(NS, 'circle');
+    startPin.setAttribute('r', '5.5');
+    startPin.setAttribute('fill', '#e11d48');
+    startPin.style.display = 'none';
+
+    previewLayer.append(previewLine, hoverRing, startPin);
+
+    const svgPt = svg.createSVGPoint();
+    let cachedInvCtm = null;
+    const refreshInvCtm = () => {
+      const ctm = svg.getScreenCTM();
+      cachedInvCtm = ctm ? ctm.inverse() : null;
+    };
 
     const toSvgPoint = (e) => {
-      const pt = svg.createSVGPoint();
-      pt.x = e.clientX;
-      pt.y = e.clientY;
-      const ctm = svg.getScreenCTM();
-      if (!ctm) return { x: 0, y: 0 };
-      const p = pt.matrixTransform(ctm.inverse());
+      if (!cachedInvCtm) refreshInvCtm();
+      if (!cachedInvCtm) return { x: 0, y: 0 };
+      svgPt.x = e.clientX;
+      svgPt.y = e.clientY;
+      const p = svgPt.matrixTransform(cachedInvCtm);
       return { x: p.x, y: p.y };
     };
 
@@ -609,32 +639,54 @@ export class IsometricGridController {
       let best = null;
       let bestDist = Infinity;
       for (const d of dots) {
-        const dist = (d.x - p.x) ** 2 + (d.y - p.y) ** 2;
+        const dx = d.x - p.x;
+        const dy = d.y - p.y;
+        const dist = dx * dx + dy * dy;
         if (dist < bestDist) {
           bestDist = dist;
           best = d;
         }
       }
-      return bestDist < 700 ? best : null;
+      return bestDist < 760 ? best : null;
     };
 
+    let lastStart = null;
+    let lastCur = null;
     const renderPreview = (startDot, curDot) => {
-      if (!previewLayer) return;
-      let html = '';
+      if (startDot === lastStart && curDot === lastCur) return;
+      lastStart = startDot;
+      lastCur = curDot;
+
       if (curDot) {
-        html += `<circle cx="${curDot.x.toFixed(1)}" cy="${curDot.y.toFixed(1)}" r="7.5" fill="none" stroke="#e11d48" stroke-width="2.5"/>`;
+        hoverRing.setAttribute('cx', curDot.x.toFixed(1));
+        hoverRing.setAttribute('cy', curDot.y.toFixed(1));
+        hoverRing.style.display = '';
+      } else {
+        hoverRing.style.display = 'none';
       }
-      if (startDot && curDot && (startDot.x !== curDot.x || startDot.y !== curDot.y)) {
-        html += `<line x1="${startDot.x.toFixed(1)}" y1="${startDot.y.toFixed(1)}" x2="${curDot.x.toFixed(1)}" y2="${curDot.y.toFixed(1)}" stroke="#e11d48" stroke-width="4" stroke-dasharray="6 4" stroke-linecap="round"/>`;
-      }
+
       if (startDot) {
-        html += `<circle cx="${startDot.x.toFixed(1)}" cy="${startDot.y.toFixed(1)}" r="5.5" fill="#e11d48"/>`;
+        startPin.setAttribute('cx', startDot.x.toFixed(1));
+        startPin.setAttribute('cy', startDot.y.toFixed(1));
+        startPin.style.display = '';
+      } else {
+        startPin.style.display = 'none';
       }
-      previewLayer.innerHTML = html;
+
+      if (startDot && curDot && (startDot.x !== curDot.x || startDot.y !== curDot.y)) {
+        previewLine.setAttribute('x1', startDot.x.toFixed(1));
+        previewLine.setAttribute('y1', startDot.y.toFixed(1));
+        previewLine.setAttribute('x2', curDot.x.toFixed(1));
+        previewLine.setAttribute('y2', curDot.y.toFixed(1));
+        previewLine.style.display = '';
+      } else {
+        previewLine.style.display = 'none';
+      }
     };
 
     svg.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      refreshInvCtm();
       svg.setPointerCapture?.(e.pointerId);
       const d = nearestDot(toSvgPoint(e));
       if (!d) return;
@@ -653,6 +705,7 @@ export class IsometricGridController {
     });
 
     svg.addEventListener('pointerup', () => {
+      cachedInvCtm = null;
       if (!this._activeDrag || this._activeDrag.slot !== slot) return;
       const { startDot, curDot } = this._activeDrag;
       this._activeDrag = null;
@@ -669,6 +722,7 @@ export class IsometricGridController {
     });
 
     svg.addEventListener('pointerleave', () => {
+      cachedInvCtm = null;
       if (!this._activeDrag) renderPreview(null, null);
     });
   }

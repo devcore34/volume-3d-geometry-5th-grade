@@ -221,7 +221,8 @@ export function createMinecraftCubeMaterial(blockType = 'grass', isTopExposed = 
     const side = makeMat(t.grassSideTex, 0.8, 0.02);
     const top = makeMat(t.grassTopTex, 0.78, 0.02);
     const bottom = makeMat(t.dirtTex, 0.85, 0.02);
-    return [side, side.clone(), top, bottom, side.clone(), side.clone()];
+    // Reuse the single `side` material across all 4 vertical faces (3x fewer materials per grass block!)
+    return [side, side, top, bottom, side, side];
   }
 
   if (blockType === 'oak') return makeMat(t.oakTex, 0.75, 0.02);
@@ -233,11 +234,17 @@ export function createMinecraftCubeMaterial(blockType = 'grass', isTopExposed = 
   return makeMat(t.grassTopTex, 0.78, 0.02);
 }
 
-// Helper to apply properties cleanly whether mesh.material is a single Material or Material[]
+// Helper to apply properties cleanly (deduplicating shared face materials)
 export function forEachMaterial(mesh, fn) {
   if (!mesh || !mesh.material) return;
   if (Array.isArray(mesh.material)) {
-    mesh.material.forEach(fn);
+    const seen = new Set();
+    for (const m of mesh.material) {
+      if (m && !seen.has(m)) {
+        seen.add(m);
+        fn(m);
+      }
+    }
   } else {
     fn(mesh.material);
   }
@@ -246,7 +253,13 @@ export function forEachMaterial(mesh, fn) {
 export function disposeMeshMaterial(mesh) {
   if (!mesh || !mesh.material) return;
   if (Array.isArray(mesh.material)) {
-    mesh.material.forEach((m) => m.dispose());
+    const seen = new Set();
+    for (const m of mesh.material) {
+      if (m && !seen.has(m)) {
+        seen.add(m);
+        m.dispose();
+      }
+    }
   } else {
     mesh.material.dispose();
   }
